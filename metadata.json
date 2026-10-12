@@ -1,0 +1,6 @@
+{
+  "name": "Sol & Mar Rent a Car",
+  "description": "Locadora de veículos em Fortaleza - Sol & Mar Rent a Car. Sua viagem. Seu caminho. Sua liberdade. Locação com atendimento humano e frota revisada.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
