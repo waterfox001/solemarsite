@@ -1,43 +1,22 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, Instagram, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
-import { company, whatsappLink } from "@/lib/env";
+import { Clock, Instagram, MapPin } from "lucide-react";
+import { company } from "@/lib/env";
 import { Logo } from "./Logo";
 
 export function Footer() {
   return (
     <footer className="mt-32 border-t border-border bg-surface/80 dark:bg-sidebar transition-colors">
-      <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[1.3fr_1fr_1fr]">
-        {/* Coluna 1: Marca, slogan e dados cadastrais oficiais */}
+      <div className="mx-auto grid max-w-[1536px] w-full gap-12 px-5 py-16 sm:px-8 lg:px-12 xl:px-16 lg:grid-cols-[1.3fr_1fr_1fr]">
+        {/* Coluna 1: Marca e slogan oficial */}
         <div className="space-y-4">
-          <Logo size={46} />
-          <p className="text-xs font-semibold tracking-wider text-primary uppercase">
+          <Logo imageClassName="h-16 sm:h-20 w-auto aspect-[1242/1130]" />
+          <p className="text-xs font-bold tracking-wider text-primary uppercase">
             "{company.tagline}"
           </p>
           <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
             Locação de veículos em Fortaleza com atendimento próximo, frota revisada e solicitação
-            de orçamento transparente. Tradição e compromisso desde 2013.
+            de orçamento transparente. Tradição e atendimento humanizado desde 2013.
           </p>
-
-          <div className="space-y-1 text-xs text-muted-foreground/90 border-t border-border/60 pt-3">
-            <p>
-              <strong className="text-foreground">Razão Social:</strong> {company.legalName}
-            </p>
-            <p>
-              <strong className="text-foreground">CNPJ:</strong> {company.cnpj}
-            </p>
-            <p className="text-[0.7rem] text-muted-foreground">* Atendimento em Fortaleza, CE.</p>
-          </div>
-
-          <div className="pt-2">
-            <a
-              href={whatsappLink()}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline"
-            >
-              Falar no WhatsApp: {company.phoneInternational}
-            </a>
-          </div>
         </div>
 
         {/* Coluna 2: Navegação */}
@@ -77,9 +56,9 @@ export function Footer() {
           </ul>
         </nav>
 
-        {/* Coluna 3: Contato oficial */}
+        {/* Coluna 3: Atendimento e Localização */}
         <div className="text-sm">
-          <p className="eyebrow">Contato Oficial</p>
+          <p className="eyebrow">Atendimento e Localização</p>
           <ul className="mt-5 space-y-4 text-muted-foreground">
             <li className="flex gap-3">
               <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -92,27 +71,6 @@ export function Footer() {
               </div>
             </li>
             <li className="flex gap-3">
-              <Phone className="mt-0.5 size-4 shrink-0 text-primary" />
-              <div className="text-xs">
-                <p className="text-foreground font-medium">Telefone / WhatsApp:</p>
-                <a
-                  href={`tel:${company.phone.replace(/[^0-9+]/g, "")}`}
-                  className="hover:underline"
-                >
-                  {company.phoneInternational}
-                </a>
-              </div>
-            </li>
-            <li className="flex gap-3">
-              <Mail className="mt-0.5 size-4 shrink-0 text-primary" />
-              <div className="text-xs">
-                <p className="text-foreground font-medium">E-mail Comercial:</p>
-                <a href={`mailto:${company.email}`} className="hover:underline">
-                  {company.email}
-                </a>
-              </div>
-            </li>
-            <li className="flex gap-3">
               <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
               <div className="text-xs">
                 <p className="text-foreground font-medium">Horário de Atendimento:</p>
@@ -121,29 +79,36 @@ export function Footer() {
             </li>
             <li className="flex gap-3">
               <Instagram className="mt-0.5 size-4 shrink-0 text-primary" />
-              <a
-                href={company.instagram}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs hover:underline"
-              >
-                @solemarrentacar
-              </a>
+              <div className="text-xs">
+                <p className="text-foreground font-medium">Instagram Oficial:</p>
+                <a
+                  href={company.instagram}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:underline text-primary font-medium"
+                >
+                  @solemarrentacar
+                </a>
+              </div>
             </li>
           </ul>
         </div>
       </div>
 
-      {/* Barra de Direitos e Créditos */}
+      {/* ============================================================ */}
+      {/* BARRA DE DIREITOS E CRÉDITOS NA ORDEM RIGOROSA SOLICITADA    */}
+      {/* 1. © 2026 Sol & Mar Rent a Car. Todos os direitos reservados. */}
+      {/* 2. Fortaleza, Ceará                                          */}
+      {/* 3. Feito por Localway (discreto, sem moldura ou sombra)       */}
+      {/* ============================================================ */}
       <div className="hairline-top">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p>
-            © {new Date().getFullYear()} Sol & Mar Rent a Car · {company.legalName} · CNPJ:{" "}
-            {company.cnpj}. Todos os direitos reservados · Fortaleza - CE.
+        <div className="mx-auto flex max-w-[1536px] w-full flex-col items-center justify-center gap-1.5 px-5 py-8 text-center text-xs text-muted-foreground sm:px-8 lg:px-12 xl:px-16">
+          <p className="font-medium text-foreground/90">
+            © 2026 Sol & Mar Rent a Car. Todos os direitos reservados.
           </p>
-          <p className="flex items-center gap-1.5 text-muted-foreground">
-            <span>Feito por</span>
-            <span className="font-semibold tracking-wide text-foreground">Localway</span>
+          <p className="text-xs text-muted-foreground">Fortaleza, Ceará</p>
+          <p className="mt-1 text-[0.75rem] text-muted-foreground/75">
+            Feito por <span className="text-foreground/80 font-medium">Localway</span>
           </p>
         </div>
       </div>

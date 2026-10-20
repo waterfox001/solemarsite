@@ -53,7 +53,7 @@ function About() {
         description="Fundada em 2 de agosto de 2013, a Sol & Mar Rent a Car nasceu com o compromisso de tornar a locação de veículos mais simples, humana e acessível no Ceará."
       />
 
-      <section className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 sm:px-8 lg:grid-cols-2">
+      <section className="mx-auto grid max-w-[1536px] w-full items-center gap-14 px-5 pb-24 sm:px-8 lg:px-12 xl:px-16 lg:grid-cols-2">
         <Reveal>
           <div className="relative">
             <img

@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Car,
   CarFront,
   Check,
   CheckCircle2,
@@ -27,6 +28,7 @@ import { addDaysISO, brl, daysBetween, longDate, todayISO } from "@/lib/format";
 import { company, whatsappLink } from "@/lib/env";
 import type { Vehicle } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { DateRangePicker } from "@/components/site/DateRangePicker";
 
 interface Search {
   inicio?: string;
@@ -258,13 +260,17 @@ function ReservationFlow() {
       `• Local Retirada: ${pickupLocation}`,
       `• Devolução: ${longDate(end)} às ${endTime}`,
       `• Local Devolução: ${returnLocation}`,
-      `• Período estimado: ${calculatedDays} diária(s)`,
+      `• Período: ${calculatedDays} diária(s)`,
       ``,
       `*Veículo Selecionado:*`,
-      `• Categoria/Modelo: ${chosenVehicle?.name ?? "Não especificado"} (${chosenVehicle?.category ?? "Geral"})`,
-      `• Diária demonstrativa: ${brl(vehicleDailyRate)}`,
-      optNames ? `• Opcionais demonstrativos: ${optNames}` : `• Opcionais: Nenhum`,
-      `• Total estimado (demonstrativo): ${brl(totalEstimated)}`,
+      `• Veículo: ${chosenVehicle?.name ?? "Não especificado"}${chosenVehicle?.category ? ` (${chosenVehicle.category})` : ""}`,
+      vehicleDailyRate > 0
+        ? `• Diária: ${brl(vehicleDailyRate)}`
+        : `• Diária: Consulte a diária (a confirmar com a equipe)`,
+      optNames ? `• Opcionais selecionados: ${optNames}` : `• Opcionais: Nenhum`,
+      vehicleDailyRate > 0
+        ? `• Total estimado: ${brl(totalEstimated)}`
+        : `• Total: A confirmar com a equipe`,
       ``,
       `*Dados do Solicitante:*`,
       `• Nome: ${customer.name}`,
@@ -272,7 +278,7 @@ function ReservationFlow() {
       `• E-mail: ${customer.email}`,
       customer.notes.trim() ? `• Observações: ${customer.notes.trim()}` : "",
       ``,
-      `_Obs: Entendo que este é um pedido de orçamento e disponibilidade, sujeito à confirmação pela equipe da Sol & Mar._`,
+      `_Obs: Solicitação de orçamento e disponibilidade sujeita à confirmação pela equipe da Sol & Mar Rent a Car._`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -303,7 +309,7 @@ function ReservationFlow() {
             Simule sua locação em <span className="italic text-primary">Fortaleza</span>
           </>
         }
-        description="Preencha os dados em 5 passos rápidos. Esta simulação é um pedido de orçamento sem cobrança prévia ou burocracia."
+        description="Preencha os dados em 5 passos rápidos para solicitar seu orçamento personalizado diretamente com a equipe da Sol & Mar."
       />
 
       <section className="mx-auto max-w-5xl px-5 pb-24 sm:px-8">
@@ -391,70 +397,22 @@ function ReservationFlow() {
                 </span>
               </label>
 
-              {/* Data e Horário de Retirada */}
-              <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Data de Retirada *</span>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={start}
-                  min={todayISO()}
-                  onChange={(e) => {
-                    setStart(e.target.value);
-                    if (e.target.value > end) setEnd(e.target.value);
+              {/* Período da locação com DateRangePicker interativo */}
+              <div className="sm:col-span-2">
+                <DateRangePicker
+                  start={start}
+                  end={end}
+                  onChangeRange={(s, e) => {
+                    setStart(s);
+                    setEnd(e);
                   }}
-                  required
+                  startTime={startTime}
+                  endTime={endTime}
+                  onChangeStartTime={(t) => setStartTime(t)}
+                  onChangeEndTime={(t) => setEndTime(t)}
+                  hours={HOURS}
                 />
-              </label>
-
-              <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  <Clock className="size-3.5 text-primary" />
-                  Horário de Retirada *
-                </span>
-                <select
-                  className={inputClass}
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                >
-                  {HOURS.map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Data e Horário de Devolução */}
-              <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Data de Devolução *</span>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={end}
-                  min={start}
-                  onChange={(e) => setEnd(e.target.value)}
-                  required
-                />
-              </label>
-
-              <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  <Clock className="size-3.5 text-primary" />
-                  Horário de Devolução *
-                </span>
-                <select
-                  className={inputClass}
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                >
-                  {HOURS.map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              </div>
 
               {/* Local de Devolução */}
               <label className="flex flex-col gap-1.5 text-xs text-muted-foreground sm:col-span-2">
@@ -552,58 +510,56 @@ function ReservationFlow() {
                       )}
                     >
                       <div className="flex gap-4">
-                        {v.images[0] ? (
+                        {v.cover_image || v.images[0] ? (
                           <img
-                            src={v.images[0]}
+                            src={v.cover_image || v.images[0]}
                             alt={v.name}
                             className="h-24 w-32 shrink-0 rounded-xl object-cover bg-surface-2"
                           />
                         ) : (
                           <div className="grid h-24 w-32 shrink-0 place-items-center rounded-xl bg-surface-2 text-xs text-muted-foreground">
-                            Sem foto
+                            <Car className="size-6 text-muted-foreground/60" />
                           </div>
                         )}
 
                         <div className="flex flex-1 flex-col justify-between py-0.5">
                           <div>
                             <div className="flex items-center justify-between gap-1">
-                              <span className="text-[0.65rem] font-semibold tracking-wider text-accent uppercase">
+                              <span className="text-[0.68rem] font-bold tracking-wider text-accent uppercase">
+                                {v.group_code ? `${v.group_code} · ` : ""}
                                 {v.category}
                               </span>
                               {isSelected ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-2 py-0.5 text-[0.65rem] font-semibold text-primary">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-2 py-0.5 text-[0.68rem] font-bold text-primary">
                                   <Check className="size-3" /> Selecionado
                                 </span>
                               ) : null}
                             </div>
-                            <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                            <h3 className="font-bold text-foreground text-sm sm:text-base mt-0.5">
                               {v.name}
                             </h3>
-                            <p className="text-xs text-muted-foreground">
-                              {v.transmission} · {v.fuel} · {v.passengers} pessoas
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {[
+                                v.transmission,
+                                v.fuel,
+                                v.passengers ? `${v.passengers} lugares` : null,
+                                v.year ? `Ano ${v.year}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
                             </p>
                           </div>
 
                           <div className="mt-2 flex items-baseline justify-between border-t border-border/50 pt-1.5">
                             <span className="text-[0.68rem] text-muted-foreground">
-                              {v.daily_rate > 0 ? `${brl(v.daily_rate)}/dia` : "A consultar"}
+                              {v.daily_rate > 0 ? `${brl(v.daily_rate)}/dia` : "Tarifa"}
                             </span>
                             <span className="font-semibold text-primary text-sm sm:text-base">
-                              {v.daily_rate > 0 ? brl(estimatedForVehicle) : "Sob consulta"}
+                              {v.daily_rate > 0 ? brl(estimatedForVehicle) : "Consulte a diária"}
                             </span>
                           </div>
                         </div>
                       </div>
-
-                      {v.features.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/40 pt-2 text-[0.68rem] text-muted-foreground">
-                          {v.features.slice(0, 3).map((f) => (
-                            <span key={f} className="rounded-md bg-surface px-1.5 py-0.5">
-                              {f}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })}
@@ -629,23 +585,28 @@ function ReservationFlow() {
         {step === 2 && chosenVehicle ? (
           <div className="animate-in fade-in space-y-8">
             <div className="border-b border-border/70 pb-4">
-              <h2 className="text-xl font-semibold sm:text-2xl">
+              <h2 className="text-xl font-bold sm:text-2xl text-foreground">
                 3. Opcionais e estimativa de valores
               </h2>
-              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                Personalize sua simulação com itens demonstrativos. Nenhum valor será cobrado neste
-                momento.
+              <p className="mt-1.5 text-xs text-muted-foreground sm:text-sm">
+                Selecione serviços opcionais para compor sua cotação. Nenhum pagamento é cobrado
+                neste momento.
               </p>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-              {/* Coluna da Esquerda: Lista de Opcionais Configuráveis */}
+            <div className="grid gap-8 lg:grid-cols-[1.35fr_1.05fr]">
+              {/* Coluna da Esquerda: Lista de Opcionais com espaçamento generoso */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold tracking-wide text-foreground uppercase">
-                  Opcionais Demonstrativos para Simulação
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold tracking-wide text-foreground uppercase">
+                    Serviços e Itens Opcionais
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedOptionals.length} selecionado(s)
+                  </span>
+                </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {DEMO_OPTIONALS.map((opt) => {
                     const isChecked = selectedOptionals.includes(opt.id);
                     const optTotal = opt.dailyPrice * calculatedDays;
@@ -655,15 +616,15 @@ function ReservationFlow() {
                         key={opt.id}
                         onClick={() => toggleOptional(opt.id)}
                         className={cn(
-                          "card-hover flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-all",
+                          "card-hover flex cursor-pointer items-start gap-4 rounded-2xl border p-4.5 transition-all",
                           isChecked
-                            ? "border-primary bg-primary/10 ring-1 ring-primary/40"
-                            : "border-border bg-card",
+                            ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
+                            : "border-border/90 bg-card hover:border-primary/40",
                         )}
                       >
                         <div
                           className={cn(
-                            "mt-0.5 grid size-5 shrink-0 place-items-center rounded border transition-colors",
+                            "mt-1 grid size-5.5 shrink-0 place-items-center rounded-md border transition-colors",
                             isChecked
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-input bg-surface",
@@ -673,97 +634,120 @@ function ReservationFlow() {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold text-foreground text-sm">{opt.name}</p>
-                            <span className="text-xs font-semibold text-primary shrink-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-bold text-foreground text-sm sm:text-base">
+                              {opt.name}
+                            </p>
+                            <span className="text-xs sm:text-sm font-bold text-primary shrink-0 bg-primary/10 px-2.5 py-1 rounded-lg">
                               +{brl(opt.dailyPrice)}/dia
                             </span>
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">{opt.description}</p>
-                          <p className="mt-2 text-[0.68rem] text-muted-foreground/80">
-                            Total para {calculatedDays} diária(s): <strong>{brl(optTotal)}</strong>
+                          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                            {opt.description}
                           </p>
+                          <div className="mt-2.5 flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>Subtotal para {calculatedDays} diária(s):</span>
+                            <strong className="text-foreground font-semibold">
+                              {brl(optTotal)}
+                            </strong>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="flex items-start gap-2 rounded-xl bg-surface/60 p-3.5 text-xs text-muted-foreground border border-border/70">
+                <div className="flex items-start gap-3 rounded-2xl bg-surface/70 p-4 text-xs text-muted-foreground border border-border/80">
                   <Info className="size-4 shrink-0 text-primary mt-0.5" />
-                  <span>
-                    A disponibilidade física dos opcionais será confirmada pela equipe da Sol & Mar
-                    durante o atendimento pelo WhatsApp.
+                  <span className="leading-relaxed">
+                    A disponibilidade dos opcionais e a tarifa final serão verificadas pela equipe
+                    da Sol & Mar durante o atendimento pelo WhatsApp.
                   </span>
                 </div>
               </div>
 
-              {/* Coluna da Direita: Quadro Resumo de Valores */}
-              <div className="glass-panel space-y-5 rounded-3xl p-6 shadow-elevate h-fit">
-                <h3 className="text-base font-semibold text-foreground">
-                  Resumo dos Valores Demonstrativos
-                </h3>
+              {/* Coluna da Direita: Quadro Resumo de Valores Claro e Arejado */}
+              <div className="glass-panel space-y-6 rounded-3xl p-6 sm:p-7 shadow-elevate h-fit border border-border/90">
+                <div className="flex items-center justify-between border-b border-border/70 pb-3.5">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground">
+                    Resumo da Cotação
+                  </h3>
+                  <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                    {calculatedDays} {calculatedDays === 1 ? "diária" : "diárias"}
+                  </span>
+                </div>
 
-                <div className="flex items-center gap-3 border-b border-border/70 pb-4">
+                {/* Miniatura e Dados do Veículo */}
+                <div className="flex items-center gap-3.5 rounded-2xl bg-surface/60 p-3.5 border border-border/60">
                   {chosenVehicle.images[0] ? (
                     <img
                       src={chosenVehicle.images[0]}
                       alt={chosenVehicle.name}
-                      className="size-16 rounded-xl object-cover bg-surface-2 shrink-0"
+                      className="size-16 sm:size-18 rounded-xl object-cover bg-surface-2 shrink-0 ring-1 ring-border/50"
                     />
                   ) : null}
-                  <div className="min-w-0">
-                    <p className="text-[0.68rem] font-semibold text-accent uppercase">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.68rem] font-bold text-accent uppercase tracking-wider">
+                      {chosenVehicle.group_code ? `${chosenVehicle.group_code} · ` : ""}
                       {chosenVehicle.category}
                     </p>
-                    <p className="font-semibold text-sm truncate">{chosenVehicle.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {calculatedDays} diária(s) × {brl(chosenVehicle.daily_rate)}
+                    <p className="font-bold text-sm sm:text-base text-foreground truncate">
+                      {chosenVehicle.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Diária base:{" "}
+                      <strong className="text-foreground">{brl(chosenVehicle.daily_rate)}</strong>
                     </p>
                   </div>
                 </div>
 
-                <div className="space-y-2.5 text-xs">
-                  <div className="flex justify-between text-muted-foreground">
+                {/* Separação Visual das Linhas de Custo */}
+                <div className="space-y-3 text-xs sm:text-sm">
+                  <div className="flex items-center justify-between text-muted-foreground">
                     <span>Diárias do veículo ({calculatedDays}x)</span>
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {brl(chosenVehicle.daily_rate * calculatedDays)}
                     </span>
                   </div>
 
                   {selectedOptionals.length > 0 ? (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Opcionais ({selectedOptionals.length} selecionado[s])</span>
-                      <span className="text-foreground">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Opcionais ({selectedOptionals.length} item[s])</span>
+                      <span className="text-foreground font-semibold">
                         +{brl(optionalsDailyTotal * calculatedDays)}
                       </span>
                     </div>
                   ) : null}
 
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Local de retirada e devolução</span>
-                    <span className="text-foreground text-right truncate max-w-[12rem]">
+                  <div className="flex items-start justify-between text-muted-foreground pt-1 border-t border-border/50">
+                    <span className="shrink-0">Local retirada/devolução</span>
+                    <span className="text-foreground font-medium text-right text-xs max-w-[13rem] truncate">
                       {pickupLocation}
                     </span>
                   </div>
 
-                  <div className="border-t border-border pt-3.5">
+                  <div className="rounded-2xl bg-surface/90 border border-primary/25 p-4 mt-2">
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm font-semibold text-foreground">Total Estimado</span>
-                      <span className="font-display text-2xl font-semibold text-primary">
+                      <span className="text-sm font-bold text-foreground">Total Estimado</span>
+                      <span className="font-display text-2xl sm:text-3xl font-extrabold text-primary">
                         {brl(totalEstimated)}
                       </span>
                     </div>
-                    <p className="mt-1 text-[0.65rem] text-muted-foreground">
-                      * Valor demonstrativo para simulação. Condições comerciais finais e forma de
-                      pagamento serão alinhadas no atendimento.
+                    <p className="mt-2 text-[0.7rem] text-muted-foreground leading-relaxed">
+                      * Estimativa para consulta de disponibilidade. Proposta final e condições de
+                      pagamento enviadas pelo WhatsApp.
                     </p>
                   </div>
                 </div>
 
-                <Button variant="hero" size="xl" className="w-full mt-4" onClick={() => setStep(3)}>
+                <Button
+                  variant="hero"
+                  size="xl"
+                  className="w-full font-bold shadow-gold text-sm sm:text-base h-12"
+                  onClick={() => setStep(3)}
+                >
                   Continuar para identificação
-                  <ArrowRight className="size-4" />
+                  <ArrowRight className="size-4 ml-1.5" />
                 </Button>
               </div>
             </div>

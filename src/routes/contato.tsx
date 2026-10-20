@@ -11,12 +11,12 @@ export const Route = createFileRoute("/contato")({
       { title: "Fale Conosco | Sol & Mar Rent a Car - Fortaleza" },
       {
         name: "description",
-        content: `Entre em contato com a Sol & Mar Rent a Car em Fortaleza. Atendimento via WhatsApp (${company.phoneInternational}), telefone e e-mail no Meireles.`,
+        content: `Entre em contato com a Sol & Mar Rent a Car em Fortaleza. Atendimento via WhatsApp (${company.phoneInternational}), telefone e Instagram no Meireles.`,
       },
       { property: "og:title", content: "Fale Conosco | Sol & Mar Rent a Car" },
       {
         property: "og:description",
-        content: "WhatsApp, telefone, e-mail e endereço em Fortaleza, Ceará.",
+        content: "WhatsApp, telefone, Instagram e endereço em Fortaleza, Ceará.",
       },
     ],
   }),
@@ -36,10 +36,10 @@ function Contact() {
       note: "Atendimento direto para orçamentos e dúvidas",
     },
     {
-      icon: Mail,
-      label: "E-mail de Atendimento",
-      value: company.email,
-      note: "Retorno ágil para propostas formais",
+      icon: Instagram,
+      label: "Instagram Oficial",
+      value: "@solemarrentacar",
+      note: "Acompanhe nossa frota e dicas de Fortaleza",
     },
     {
       icon: MapPin,
@@ -70,9 +70,9 @@ function Contact() {
             Vamos conversar sobre a sua <span className="italic text-primary">locação</span>
           </>
         }
-        description="Fale diretamente com nossa equipe em Fortaleza por WhatsApp, telefone ou e-mail para tirar dúvidas ou planejar sua viagem com total transparência."
+        description="Fale diretamente com nossa equipe em Fortaleza por WhatsApp ou telefone para tirar dúvidas ou planejar sua viagem com total transparência."
       />
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-24 sm:px-8 lg:grid-cols-2">
+      <section className="mx-auto grid max-w-[1536px] w-full gap-8 px-5 pb-24 sm:px-8 lg:px-12 xl:px-16 lg:grid-cols-2">
         <div className="grid gap-3.5">
           {items.map((i) => (
             <div

@@ -16,20 +16,15 @@ export const SUPABASE_BUCKET = read("VITE_SUPABASE_STORAGE_BUCKET", "veiculos");
 
 export const isSupabaseConfigured = SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
 
-export const DEMO_ADMIN = {
-  email: read("VITE_DEMO_ADMIN_EMAIL", "admin@solemar.com"),
-  password: read("VITE_DEMO_ADMIN_PASSWORD", "admin123"),
-};
-
 export const company = {
   name: "Sol & Mar Rent a Car",
   legalName: "Andre de Sousa Marques",
   cnpj: "18.617.401/0001-50",
-  tagline: "A liberdade de ir onde o sol e o mar te levarem.",
-  phone: read("VITE_COMPANY_PHONE", "(85) 9974-3558"),
-  phoneInternational: "+55 85 9974-3558",
-  whatsapp: read("VITE_COMPANY_WHATSAPP", "558599743558"),
-  email: read("VITE_COMPANY_EMAIL", "solemarrentacar@gmail.com"),
+  tagline: "A liberdade onde o sol e o mar te levarem.",
+  phone: read("VITE_COMPANY_PHONE", "(85) 99974-3558"),
+  phoneInternational: "+55 85 99974-3558",
+  whatsapp: read("VITE_COMPANY_WHATSAPP", "5585999743558"),
+  email: read("VITE_COMPANY_EMAIL", ""),
   commercialAddress: "Avenida da Abolição, 1894, Meireles, Fortaleza - CE, Brasil",
   address: read("VITE_COMPANY_ADDRESS", "Avenida da Abolição, 1894, Meireles, Fortaleza - CE"),
   city: "Fortaleza, CE",

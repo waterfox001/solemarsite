@@ -41,7 +41,7 @@ const steps = [
   {
     icon: CarFront,
     title: "2. Escolha da categoria",
-    text: "Navegue pelo catálogo demonstrativo e selecione o grupo de veículos que melhor atende sua viagem (econômico, sedan, SUV ou picape).",
+    text: "Navegue pelo catálogo demonstrativo e selecione o grupo de veículos que melhor atende sua viagem (econômico, sedã, SUV ou picape).",
   },
   {
     icon: Sparkles,

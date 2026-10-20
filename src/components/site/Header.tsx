@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, Phone, X } from "lucide-react";
+import { Menu, Phone, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { company } from "@/lib/env";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,8 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const isHome = pathname === "/";
+
   return (
     <header
       className={cn(
@@ -39,21 +41,42 @@ export function Header() {
           : "border-b border-transparent py-4",
       )}
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-3 px-5 sm:px-8">
-        <Logo size={42} className="shrink-0" />
+      <div className="mx-auto flex max-w-[1536px] w-full items-center gap-4 px-5 sm:px-8 lg:px-12 xl:px-16">
+        <Logo
+          className="shrink-0"
+          imageClassName={
+            scrolled
+              ? "h-14 sm:h-16 lg:h-18 w-auto aspect-[1242/1130]"
+              : "h-16 sm:h-20 lg:h-24 xl:h-28 w-auto aspect-[1242/1130]"
+          }
+          priority
+        />
 
         <nav className="ml-auto hidden items-center gap-1 lg:flex">
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="rounded-full px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-surface/60"
-              activeProps={{ className: "text-foreground font-semibold bg-surface/80 shadow-xs" }}
-              activeOptions={{ exact: item.to === "/" }}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {nav.map((item) => {
+            if (item.to === "/faq" && isHome) {
+              return (
+                <a
+                  key={item.to}
+                  href="#faq"
+                  className="rounded-full px-3.5 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground hover:bg-surface/70"
+                >
+                  {item.label}
+                </a>
+              );
+            }
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="rounded-full px-3.5 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground hover:bg-surface/70"
+                activeProps={{ className: "text-foreground font-bold bg-surface/90 shadow-xs" }}
+                activeOptions={{ exact: item.to === "/" }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="ml-auto flex items-center gap-2 lg:ml-4">
@@ -73,6 +96,16 @@ export function Header() {
             <Link to="/reserva">Solicitar orçamento</Link>
           </Button>
 
+          {/* Acesso discreto ao Painel Administrativo da Frota */}
+          <Link
+            to="/admin"
+            aria-label="Painel administrativo da frota"
+            title="Painel administrativo da frota"
+            className="grid size-9 shrink-0 place-items-center rounded-xl border border-border/80 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-surface hover:text-foreground"
+          >
+            <ShieldCheck className="size-4" />
+          </Link>
+
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -87,17 +120,31 @@ export function Header() {
       {open ? (
         <div className="glass-panel mx-4 mt-3 rounded-2xl border border-border p-4 shadow-elevate lg:hidden animate-in fade-in-50 duration-200">
           <nav className="flex flex-col gap-1">
-            {nav.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="rounded-xl px-4 py-2.5 text-base font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-                activeProps={{ className: "text-primary font-semibold bg-surface" }}
-                activeOptions={{ exact: item.to === "/" }}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {nav.map((item) => {
+              if (item.to === "/faq" && isHome) {
+                return (
+                  <a
+                    key={item.to}
+                    href="#faq"
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-4 py-2.5 text-base font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+                  >
+                    {item.label}
+                  </a>
+                );
+              }
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="rounded-xl px-4 py-2.5 text-base font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+                  activeProps={{ className: "text-primary font-semibold bg-surface" }}
+                  activeOptions={{ exact: item.to === "/" }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="mt-3 space-y-2 border-t border-border pt-3">
@@ -113,6 +160,15 @@ export function Header() {
               <span className="text-xs font-medium text-muted-foreground">Alternar aparência</span>
               <ThemeToggle />
             </div>
+
+            <Link
+              to="/admin"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs font-medium text-foreground hover:text-primary transition-colors"
+            >
+              <ShieldCheck className="size-4 text-primary" />
+              <span>Painel administrativo da frota</span>
+            </Link>
           </div>
 
           <Button asChild variant="hero" size="lg" className="mt-3 w-full">

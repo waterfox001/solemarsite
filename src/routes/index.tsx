@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -21,7 +21,15 @@ import { Reveal } from "@/components/site/Reveal";
 import { VehicleCard } from "@/components/site/VehicleCard";
 import { listVehicles } from "@/lib/api";
 import { addDaysISO, todayISO } from "@/lib/format";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { company, whatsappLink } from "@/lib/env";
+import { FAQS } from "@/lib/faq-data";
+import { DateRangePicker } from "@/components/site/DateRangePicker";
 import hero from "@/assets/hero-coast.jpg";
 import aboutImage from "@/assets/about-team.jpg";
 
@@ -42,6 +50,10 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  loader: async () => {
+    const vehicles = await listVehicles();
+    return { vehicles };
+  },
   component: Home,
 });
 
@@ -132,9 +144,45 @@ function Home() {
   const [pickupLocation] = useState(company.defaultPickupLocation);
   const [category, setCategory] = useState("Todas");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(6);
 
-  const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: listVehicles });
-  const featured = vehicles.filter((v) => v.active).slice(0, 3);
+  const loaderData = Route.useLoaderData();
+  const { data: vehicles = loaderData?.vehicles ?? [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: listVehicles,
+    initialData: loaderData?.vehicles,
+  });
+
+  const activeVehicles = useMemo(() => vehicles.filter((v) => v.active), [vehicles]);
+
+  // Distribui os veículos entre diferentes categorias para a exibição inicial diversificada
+  const sortedFeaturedVehicles = useMemo(() => {
+    const categoriesMap = new Map<string, typeof activeVehicles>();
+    for (const v of activeVehicles) {
+      const cat = v.category || "Outros";
+      if (!categoriesMap.has(cat)) categoriesMap.set(cat, []);
+      categoriesMap.get(cat)!.push(v);
+    }
+
+    const result: typeof activeVehicles = [];
+    const entries = Array.from(categoriesMap.values());
+    let maxLen = 0;
+    for (const list of entries) {
+      if (list.length > maxLen) maxLen = list.length;
+    }
+
+    for (let i = 0; i < maxLen; i++) {
+      for (const list of entries) {
+        if (list[i]) {
+          result.push(list[i]);
+        }
+      }
+    }
+
+    return result.length > 0 ? result : activeVehicles;
+  }, [activeVehicles]);
+
+  const displayedVehicles = sortedFeaturedVehicles.slice(0, visibleCount);
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -175,16 +223,19 @@ function Home() {
           alt="Carro em estrada litorânea ao pôr do sol"
           width={1920}
           height={1200}
-          className="absolute inset-0 size-full object-cover"
+          className="absolute inset-0 size-full object-cover object-[center_30%] sm:object-[center_35%] lg:object-[86%_45%] xl:object-[90%_45%]"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/35" />
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background to-transparent" />
+        {/* Camada gradiente que garante legibilidade máxima do texto à esquerda mantendo o veículo nítido à direita */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/25 lg:w-[65%] lg:from-background lg:via-background/80 lg:to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-background to-transparent" />
 
-        <div className="relative mx-auto flex min-h-[94vh] max-w-7xl flex-col justify-end px-5 pt-36 pb-16 sm:px-8 sm:pb-24">
+        <div className="relative mx-auto flex min-h-[94vh] max-w-[1536px] w-full flex-col justify-end px-5 pt-36 pb-16 sm:px-8 sm:pb-24 lg:px-12 xl:px-16">
           <div className="max-w-3xl">
             <span className="eyebrow reveal">"{company.tagline}"</span>
-            <h1 className="reveal reveal-delay-1 mt-4 text-[2.5rem] leading-[1.05] font-semibold sm:text-6xl lg:text-7xl">
-              Explore Fortaleza <span className="text-gradient-gold italic">no seu ritmo</span>.
+            <h1 className="reveal reveal-delay-1 mt-4 text-3xl font-semibold leading-[1.18] sm:text-5xl md:text-6xl lg:text-7xl lg:leading-[1.12] tracking-tight">
+              Explore Fortaleza{" "}
+              <span className="inline-block text-gradient-gold italic pr-2 pb-1">no seu ritmo</span>
+              .
             </h1>
             <p className="reveal reveal-delay-2 mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
               Encontre o veículo ideal para sua próxima viagem e descubra Fortaleza com mais
@@ -192,11 +243,11 @@ function Home() {
             </p>
           </div>
 
-          {/* Widget de busca completo com datas, horários e local */}
+          {/* Widget de busca interativo com calendário elegante e responsivo */}
           <Reveal delay={240} className="mt-10 w-full">
             <form
               onSubmit={handleSearchSubmit}
-              className="glass-panel space-y-4 rounded-3xl p-5 shadow-elevate sm:p-7 lg:max-w-5xl"
+              className="glass-panel space-y-4 rounded-3xl p-5 shadow-elevate sm:p-7 lg:max-w-3xl xl:max-w-4xl"
             >
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
                 <span className="text-xs font-semibold tracking-wider text-primary uppercase">
@@ -207,104 +258,52 @@ function Home() {
                 </span>
               </div>
 
-              {/* Grid de campos */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Retirada: Data */}
-                <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Data de Retirada</span>
-                  <input
-                    type="date"
-                    value={start}
-                    min={todayISO()}
-                    onChange={(e) => {
-                      setStart(e.target.value);
-                      if (e.target.value > end) setEnd(e.target.value);
-                      setValidationError(null);
-                    }}
-                    className="h-11 rounded-xl border border-input bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
-                    required
-                  />
-                </label>
-
-                {/* Retirada: Horário */}
-                <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1 font-medium text-foreground">
-                    <Clock className="size-3.5 text-primary" />
-                    Horário de Retirada
-                  </span>
-                  <select
-                    value={startTime}
-                    onChange={(e) => {
-                      setStartTime(e.target.value);
-                      setValidationError(null);
-                    }}
-                    className="h-11 rounded-xl border border-input bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
-                  >
-                    {HOURS.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {/* Devolução: Data */}
-                <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Data de Devolução</span>
-                  <input
-                    type="date"
-                    value={end}
-                    min={start}
-                    onChange={(e) => {
-                      setEnd(e.target.value);
-                      setValidationError(null);
-                    }}
-                    className="h-11 rounded-xl border border-input bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
-                    required
-                  />
-                </label>
-
-                {/* Devolução: Horário */}
-                <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1 font-medium text-foreground">
-                    <Clock className="size-3.5 text-primary" />
-                    Horário de Devolução
-                  </span>
-                  <select
-                    value={endTime}
-                    onChange={(e) => {
-                      setEndTime(e.target.value);
-                      setValidationError(null);
-                    }}
-                    className="h-11 rounded-xl border border-input bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
-                  >
-                    {HOURS.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              {/* Calendário e horários responsivos com bloqueio de datas passadas */}
+              <DateRangePicker
+                start={start}
+                end={end}
+                onChangeRange={(s, e) => {
+                  setStart(s);
+                  setEnd(e);
+                  setValidationError(null);
+                }}
+                startTime={startTime}
+                endTime={endTime}
+                onChangeStartTime={(t) => {
+                  setStartTime(t);
+                  setValidationError(null);
+                }}
+                onChangeEndTime={(t) => {
+                  setEndTime(t);
+                  setValidationError(null);
+                }}
+                hours={HOURS}
+              />
 
               {/* Linha auxiliar: Categoria + Botão de Consulta */}
-              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between border-t border-border/50">
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Categoria preferida:</span>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="h-9 rounded-lg border border-input bg-surface px-2.5 text-xs text-foreground outline-none focus:border-primary"
+                    className="h-10 rounded-xl border border-input bg-surface px-3 text-xs font-medium text-foreground outline-none focus:border-primary"
                   >
                     <option value="Todas">Todas as categorias</option>
-                    <option value="Econômico">Econômico</option>
-                    <option value="Executivo">Executivo</option>
+                    <option value="Hatch">Hatch / Compacto</option>
+                    <option value="Sedã">Sedã</option>
                     <option value="SUV">SUV</option>
                     <option value="Picape">Picape</option>
+                    <option value="Minivan">Minivan / 7 Lugares</option>
                   </select>
                 </label>
 
-                <Button type="submit" variant="hero" size="xl" className="w-full sm:w-auto">
+                <Button
+                  type="submit"
+                  variant="hero"
+                  size="xl"
+                  className="w-full sm:w-auto font-bold shadow-gold"
+                >
                   Consultar veículos disponíveis
                   <ArrowRight className="size-4" />
                 </Button>
@@ -323,7 +322,7 @@ function Home() {
       </section>
 
       {/* ---------------- DESTAQUES DA FROTA ---------------- */}
-      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8 sm:py-32">
+      <section className="mx-auto max-w-[1536px] w-full px-5 py-24 sm:px-8 sm:py-32 lg:px-12 xl:px-16">
         <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <SectionHeading
             eyebrow="Nossa frota em Fortaleza"
@@ -332,7 +331,7 @@ function Home() {
                 Veículos para cada <span className="italic text-primary">tipo de viagem</span>
               </>
             }
-            description="Do compacto ágil para o trânsito da cidade ao SUV para as praias e litoral. Dados demonstrativos para consulta."
+            description="Do compacto ágil para o trânsito da cidade ao SUV para as praias e litoral. Locação por categoria com veículos revisados e modelos de referência."
           />
           <Reveal delay={120}>
             <Button asChild variant="glass" size="lg">
@@ -344,18 +343,52 @@ function Home() {
           </Reveal>
         </div>
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((vehicle, index) => (
-            <Reveal key={vehicle.id} delay={index * 110}>
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-start">
+          {displayedVehicles.map((vehicle, index) => (
+            <Reveal key={vehicle.id} delay={index * 90}>
               <VehicleCard vehicle={vehicle} period={{ start, end }} />
             </Reveal>
           ))}
         </div>
+
+        {activeVehicles.length > visibleCount ? (
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="xl"
+              onClick={() => setVisibleCount((prev) => prev + 6)}
+              className="w-full sm:w-auto font-bold border-border/80 hover:border-primary shadow-xs"
+            >
+              Carregar mais veículos ({activeVehicles.length - visibleCount} restantes)
+            </Button>
+            <Button
+              asChild
+              variant="hero"
+              size="xl"
+              className="w-full sm:w-auto font-bold shadow-gold"
+            >
+              <Link to="/veiculos">
+                Ver catálogo completo
+                <ArrowRight className="size-4 ml-1.5" />
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-12 text-center">
+            <Button asChild variant="glass" size="xl">
+              <Link to="/veiculos">
+                Explorar catálogo completo da frota
+                <ArrowRight className="size-4 ml-1.5" />
+              </Link>
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* ---------------- COMO FUNCIONA ---------------- */}
       <section className="border-y border-border bg-surface/40 py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="mx-auto max-w-[1536px] w-full px-5 sm:px-8 lg:px-12 xl:px-16">
           <SectionHeading
             eyebrow="Como funciona"
             title="Quatro passos simples até a sua viagem"
@@ -387,7 +420,7 @@ function Home() {
       </section>
 
       {/* ---------------- SOBRE / DIFERENCIAIS ---------------- */}
-      <section className="mx-auto grid max-w-7xl items-center gap-16 px-5 py-24 sm:px-8 sm:py-32 lg:grid-cols-2">
+      <section className="mx-auto grid max-w-[1536px] w-full items-center gap-16 px-5 py-24 sm:px-8 sm:py-32 lg:px-12 xl:px-16 lg:grid-cols-2">
         <Reveal>
           <div className="relative">
             <img
@@ -433,8 +466,37 @@ function Home() {
         </div>
       </section>
 
+      {/* ---------------- PERGUNTAS FREQUENTES (FAQ) ---------------- */}
+      <section id="faq" className="mx-auto max-w-4xl px-5 py-20 sm:px-8 sm:py-28">
+        <Reveal>
+          <div className="text-center">
+            <SectionHeading
+              align="center"
+              eyebrow="Tire Suas Dúvidas"
+              title="Perguntas Frequentes"
+              description="Respostas claras sobre documentação, retirada no aeroporto e regras de locação da Sol & Mar em Fortaleza."
+            />
+          </div>
+        </Reveal>
+
+        <Reveal delay={120} className="mt-10">
+          <Accordion type="single" collapsible className="glass-panel rounded-3xl px-6 sm:px-8">
+            {FAQS.map((faq, i) => (
+              <AccordionItem key={faq.question} value={`home-faq-${i}`}>
+                <AccordionTrigger className="py-6 text-left text-base font-medium text-foreground hover:no-underline">
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent className="pb-6 leading-relaxed text-sm text-muted-foreground">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </Reveal>
+      </section>
+
       {/* ---------------- CTA FINAL ---------------- */}
-      <section className="mx-auto max-w-7xl px-5 sm:px-8">
+      <section className="mx-auto max-w-[1536px] w-full px-5 sm:px-8 lg:px-12 xl:px-16">
         <Reveal className="relative overflow-hidden rounded-3xl border border-border bg-surface p-10 sm:p-16">
           <div className="pointer-events-none absolute -top-24 -right-16 size-80 rounded-full bg-primary/15 blur-3xl" />
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">

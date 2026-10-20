@@ -10,13 +10,17 @@ import { company, whatsappLink } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/veiculos/")({
+  loader: async () => {
+    const vehicles = await listVehicles();
+    return { vehicles };
+  },
   head: () => ({
     meta: [
       { title: "Catálogo de Veículos | Sol & Mar Rent a Car" },
       {
         name: "description",
         content:
-          "Conheça a frota da Sol & Mar em Fortaleza: econômicos, sedans, SUVs e picapes com diárias transparentes.",
+          "Conheça a frota da Sol & Mar em Fortaleza: econômicos, sedãs, SUVs e picapes com diárias transparentes.",
       },
       { property: "og:title", content: "Catálogo de Veículos | Sol & Mar Rent a Car" },
       {
@@ -29,9 +33,11 @@ export const Route = createFileRoute("/veiculos/")({
 });
 
 export function Catalog() {
-  const { data: vehicles = [], isLoading } = useQuery({
+  const loaderData = Route.useLoaderData();
+  const { data: vehicles = loaderData?.vehicles ?? [], isLoading } = useQuery({
     queryKey: ["vehicles"],
     queryFn: listVehicles,
+    initialData: loaderData?.vehicles,
   });
 
   const [category, setCategory] = useState("Todos");
@@ -42,9 +48,9 @@ export function Catalog() {
 
   const active = vehicles.filter((v) => v.active);
 
-  // Categorias presentes no catálogo demonstrativo
+  // Categorias presentes no catálogo da frota
   const categories = useMemo(() => {
-    const list = Array.from(new Set(active.map((v) => v.category)));
+    const list = Array.from(new Set(active.map((v) => v.category).filter(Boolean))) as string[];
     return ["Todos", ...list];
   }, [active]);
 
@@ -69,13 +75,13 @@ export function Catalog() {
       const matchTrans = transmission === "Todos" || v.transmission === transmission;
       const matchPass =
         passengers === "Todos" ||
-        (passengers === "ate5" && v.passengers <= 5) ||
-        (passengers === "mais5" && v.passengers > 5);
+        (passengers === "ate5" && (v.passengers ?? 0) <= 5) ||
+        (passengers === "mais5" && (v.passengers ?? 0) > 5);
       const matchQuery =
         !query.trim() ||
         v.name.toLowerCase().includes(query.toLowerCase()) ||
-        v.category.toLowerCase().includes(query.toLowerCase()) ||
-        v.features.some((f) => f.toLowerCase().includes(query.toLowerCase()));
+        (v.category && v.category.toLowerCase().includes(query.toLowerCase())) ||
+        (v.features ?? []).some((f) => f.toLowerCase().includes(query.toLowerCase()));
 
       return matchCat && matchTrans && matchPass && matchQuery;
     });
@@ -98,10 +104,10 @@ export function Catalog() {
             Encontre o veículo <span className="italic text-primary">ideal</span> para sua viagem
           </>
         }
-        description="Filtre por categoria, câmbio e capacidade. Valores e dados apresentados em modo de demonstração institucional para Fortaleza."
+        description="Filtre por categoria, câmbio e capacidade. Locação por grupo com veículos de referência e modelos similares revisados em Fortaleza."
       />
 
-      <section className="mx-auto max-w-7xl px-5 sm:px-8">
+      <section className="mx-auto max-w-[1536px] w-full px-5 sm:px-8 lg:px-12 xl:px-16">
         {/* Painel de Filtros Responsivo */}
         <div className="glass-panel space-y-4 rounded-3xl p-5 sm:p-6 shadow-elevate">
           {/* Linha 1: Categorias como pílulas de toque amigáveis */}
@@ -210,7 +216,7 @@ export function Catalog() {
         </div>
 
         {/* Grade de Cards da Frota */}
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-start">
           {filtered.map((v, i) => (
             <Reveal key={v.id} delay={(i % 3) * 80}>
               <VehicleCard vehicle={v} />

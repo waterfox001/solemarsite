@@ -72,18 +72,23 @@ function VehiclePage() {
     );
   }
 
-  const specs = [
-    { icon: Gauge, label: "Câmbio", value: vehicle.transmission },
-    { icon: Fuel, label: "Combustível", value: vehicle.fuel },
-    { icon: Users, label: "Passageiros", value: String(vehicle.passengers) },
-    { icon: DoorOpen, label: "Portas", value: String(vehicle.doors) },
-    { icon: Luggage, label: "Malas", value: String(vehicle.luggage) },
-  ];
+  const specs: { icon: typeof Gauge; label: string; value: string }[] = [];
+  if (vehicle.transmission)
+    specs.push({ icon: Gauge, label: "Câmbio", value: vehicle.transmission });
+  if (vehicle.fuel) specs.push({ icon: Fuel, label: "Combustível", value: vehicle.fuel });
+  if (vehicle.passengers)
+    specs.push({ icon: Users, label: "Passageiros", value: `${vehicle.passengers} lugares` });
+  if (vehicle.doors)
+    specs.push({ icon: DoorOpen, label: "Portas", value: `${vehicle.doors} portas` });
+  if (vehicle.luggage)
+    specs.push({ icon: Luggage, label: "Malas", value: `${vehicle.luggage} malas` });
+  if (vehicle.year) specs.push({ icon: Gauge, label: "Ano", value: String(vehicle.year) });
+
   const canBook = vehicle.status !== "manutencao";
 
   return (
     <SiteLayout>
-      <section className="mx-auto max-w-7xl px-5 pt-32 sm:px-8 sm:pt-40">
+      <section className="mx-auto max-w-[1536px] w-full px-5 pt-32 sm:px-8 sm:pt-40 lg:px-12 xl:px-16">
         <Link
           to="/veiculos"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
@@ -93,15 +98,15 @@ function VehiclePage() {
         <div className="mt-8 grid gap-12 lg:grid-cols-[1.4fr_1fr]">
           <div className="reveal">
             <div className="overflow-hidden rounded-3xl border border-border bg-surface">
-              {vehicle.images[photo] ? (
+              {vehicle.cover_image || vehicle.images[photo] ? (
                 <img
-                  src={vehicle.images[photo]}
+                  src={vehicle.cover_image || vehicle.images[photo]}
                   alt={vehicle.name}
-                  className="aspect-[16/10] w-full object-cover"
+                  className="aspect-[3/2] w-full object-cover object-center"
                 />
               ) : (
-                <div className="grid aspect-[16/10] place-items-center text-muted-foreground">
-                  Sem foto
+                <div className="grid aspect-[3/2] place-items-center text-muted-foreground bg-surface/50">
+                  <Car className="size-12 text-muted-foreground/50" />
                 </div>
               )}
             </div>
@@ -124,45 +129,66 @@ function VehiclePage() {
           </div>
 
           <div className="reveal reveal-delay-1">
-            <VehicleStatusBadge status={vehicle.status} />
-            <p className="eyebrow mt-6">{vehicle.category}</p>
-            <h1 className="mt-3 text-4xl leading-tight font-semibold sm:text-5xl">
-              {vehicle.name}
-            </h1>
-            <p className="mt-5 leading-relaxed text-muted-foreground">{vehicle.description}</p>
-
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {specs.map((s) => (
-                <div key={s.label} className="rounded-xl border border-border bg-card p-4">
-                  <s.icon className="size-5 text-primary" />
-                  <p className="mt-3 text-xs text-muted-foreground">{s.label}</p>
-                  <p className="font-semibold">{s.value}</p>
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              <VehicleStatusBadge status={vehicle.status} />
+              {vehicle.is_illustrative_image ? (
+                <span className="rounded-full bg-surface px-3 py-0.5 text-xs font-semibold text-muted-foreground border border-border/70">
+                  Foto ilustrativa
+                </span>
+              ) : null}
             </div>
 
-            {vehicle.features.length ? (
-              <ul className="mt-8 grid grid-cols-2 gap-2 text-sm">
-                {vehicle.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-muted-foreground">
-                    <Check className="size-4 text-primary" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
+            {vehicle.category ? (
+              <p className="eyebrow mt-5">
+                {vehicle.group_code ? `${vehicle.group_code} · ` : ""}
+                {vehicle.category}
+              </p>
+            ) : null}
+            <h1 className="mt-2 text-3xl sm:text-4xl lg:text-5xl leading-tight font-bold text-foreground">
+              {vehicle.name}
+            </h1>
+            {vehicle.description ? (
+              <p className="mt-4 leading-relaxed text-muted-foreground">{vehicle.description}</p>
             ) : null}
 
-            <div className="glass-panel mt-10 rounded-2xl p-6">
-              <p className="text-xs text-muted-foreground">Diária demonstrativa a partir de</p>
-              <p className="font-display text-4xl font-semibold text-primary">
-                {brl(vehicle.daily_rate)}
+            {vehicle.similar_models && vehicle.similar_models.length > 0 ? (
+              <div className="mt-4 rounded-xl border border-border/70 bg-surface/60 p-3 text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">Modelos do grupo: </span>
+                {vehicle.similar_models.join(" · ")}
+              </div>
+            ) : null}
+
+            {specs.length > 0 ? (
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {specs.map((s) => (
+                  <div key={s.label} className="rounded-xl border border-border bg-card p-3.5">
+                    <s.icon className="size-4.5 text-primary" />
+                    <p className="mt-2 text-xs text-muted-foreground">{s.label}</p>
+                    <p className="font-bold text-foreground text-sm">{s.value}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="glass-panel mt-8 rounded-2xl p-6 border border-border/90">
+              <p className="text-xs font-medium text-muted-foreground">Tarifa por diária</p>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="font-display text-4xl font-extrabold text-primary">
+                  {vehicle.daily_rate > 0 ? brl(vehicle.daily_rate) : "Consulte a diária"}
+                </span>
+                {vehicle.daily_rate > 0 ? (
+                  <span className="text-sm font-semibold text-muted-foreground">/diária</span>
+                ) : null}
+              </div>
+              <p className="mt-2 text-[0.7rem] text-muted-foreground">
+                * Valores e disponibilidade física confirmados no atendimento da locadora.
               </p>
               <Button
                 asChild={canBook}
                 disabled={!canBook}
                 variant="hero"
                 size="xl"
-                className="mt-6 w-full"
+                className="mt-5 w-full font-bold shadow-gold h-12"
               >
                 {canBook ? (
                   <Link

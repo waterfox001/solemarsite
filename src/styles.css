@@ -73,59 +73,59 @@
   /* ======================================================== */
   /* TEMA CLARO: Predominantemente branco, limpo e elegante    */
   /* ======================================================== */
-  --background: oklch(0.985 0.005 250);
-  --foreground: oklch(0.2 0.05 258);
-  --surface: oklch(0.96 0.008 250);
-  --surface-2: oklch(0.92 0.012 250);
+  --background: oklch(0.988 0.004 250);
+  --foreground: oklch(0.16 0.05 258);
+  --surface: oklch(0.965 0.006 250);
+  --surface-2: oklch(0.93 0.01 250);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.05 258);
+  --card-foreground: oklch(0.16 0.05 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.05 258);
+  --popover-foreground: oklch(0.16 0.05 258);
 
   /* Amarelo/Dourado solar com contraste ótimo */
   --primary: oklch(0.75 0.15 82);
-  --primary-foreground: oklch(0.18 0.048 258);
+  --primary-foreground: oklch(0.16 0.05 258);
   --gold: oklch(0.75 0.15 82);
   --gold-soft: oklch(0.92 0.08 88);
 
   --secondary: oklch(0.94 0.01 250);
-  --secondary-foreground: oklch(0.2 0.05 258);
+  --secondary-foreground: oklch(0.16 0.05 258);
 
   --muted: oklch(0.94 0.01 250);
-  --muted-foreground: oklch(0.46 0.035 255);
+  --muted-foreground: oklch(0.35 0.042 255);
 
-  --accent: oklch(0.38 0.13 252);
+  --accent: oklch(0.36 0.14 252);
   --accent-foreground: oklch(0.99 0 0);
-  --sea: oklch(0.38 0.13 252);
+  --sea: oklch(0.36 0.14 252);
 
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.62 0.16 150);
   --warning: oklch(0.75 0.15 75);
 
-  --border: oklch(0.2 0.05 258 / 12%);
-  --input: oklch(0.2 0.05 258 / 16%);
-  --ring: oklch(0.38 0.13 252 / 60%);
+  --border: oklch(0.2 0.05 258 / 14%);
+  --input: oklch(0.2 0.05 258 / 18%);
+  --ring: oklch(0.36 0.14 252 / 60%);
 
   --chart-1: oklch(0.75 0.15 82);
-  --chart-2: oklch(0.38 0.13 252);
+  --chart-2: oklch(0.36 0.14 252);
   --chart-3: oklch(0.62 0.16 150);
   --chart-4: oklch(0.55 0.22 25);
-  --chart-5: oklch(0.46 0.035 255);
+  --chart-5: oklch(0.35 0.042 255);
 
   --sidebar: oklch(0.97 0.008 250);
-  --sidebar-foreground: oklch(0.2 0.05 258);
+  --sidebar-foreground: oklch(0.16 0.05 258);
   --sidebar-primary: oklch(0.75 0.15 82);
-  --sidebar-primary-foreground: oklch(0.18 0.048 258);
+  --sidebar-primary-foreground: oklch(0.16 0.05 258);
   --sidebar-accent: oklch(0.93 0.015 250);
-  --sidebar-accent-foreground: oklch(0.2 0.05 258);
+  --sidebar-accent-foreground: oklch(0.16 0.05 258);
   --sidebar-border: oklch(0.2 0.05 258 / 10%);
-  --sidebar-ring: oklch(0.38 0.13 252 / 50%);
+  --sidebar-ring: oklch(0.36 0.14 252 / 50%);
 
-  --gradient-deep: linear-gradient(180deg, oklch(0.985 0.005 250), oklch(0.955 0.01 250));
-  --gradient-gold: linear-gradient(100deg, oklch(0.72 0.15 82), oklch(0.62 0.15 72));
-  --gradient-sea: linear-gradient(120deg, oklch(0.38 0.13 252), oklch(0.28 0.1 255));
+  --gradient-deep: linear-gradient(180deg, oklch(0.988 0.004 250), oklch(0.96 0.008 250));
+  --gradient-gold: linear-gradient(100deg, oklch(0.74 0.15 82), oklch(0.64 0.15 72));
+  --gradient-sea: linear-gradient(120deg, oklch(0.36 0.14 252), oklch(0.26 0.11 255));
 
   --shadow-elevate-val: 0 16px 40px -16px oklch(0.2 0.05 258 / 0.1);
   --shadow-gold-val: 0 12px 28px -12px oklch(0.75 0.15 82 / 0.4);
@@ -137,27 +137,27 @@
   /* ======================================================== */
   /* TEMA ESCURO: Sofisticado, moderno, azul-marinho profundo  */
   /* ======================================================== */
-  --background: oklch(0.19 0.048 258);
-  --foreground: oklch(0.98 0.005 250);
-  --surface: oklch(0.235 0.05 258);
-  --surface-2: oklch(0.28 0.052 258);
+  --background: oklch(0.18 0.048 258);
+  --foreground: oklch(0.985 0.005 250);
+  --surface: oklch(0.23 0.05 258);
+  --surface-2: oklch(0.275 0.052 258);
 
-  --card: oklch(0.235 0.05 258);
-  --card-foreground: oklch(0.98 0.005 250);
-  --popover: oklch(0.235 0.05 258);
-  --popover-foreground: oklch(0.98 0.005 250);
+  --card: oklch(0.23 0.05 258);
+  --card-foreground: oklch(0.985 0.005 250);
+  --popover: oklch(0.23 0.05 258);
+  --popover-foreground: oklch(0.985 0.005 250);
 
   /* Amarelo/dourado solar — CTAs e destaques */
   --primary: oklch(0.82 0.135 84);
-  --primary-foreground: oklch(0.19 0.048 258);
+  --primary-foreground: oklch(0.18 0.048 258);
   --gold: oklch(0.82 0.135 84);
   --gold-soft: oklch(0.9 0.09 88);
 
-  --secondary: oklch(0.28 0.052 258);
-  --secondary-foreground: oklch(0.98 0.005 250);
+  --secondary: oklch(0.275 0.052 258);
+  --secondary-foreground: oklch(0.985 0.005 250);
 
-  --muted: oklch(0.28 0.052 258);
-  --muted-foreground: oklch(0.74 0.02 250);
+  --muted: oklch(0.275 0.052 258);
+  --muted-foreground: oklch(0.78 0.022 250);
 
   --accent: oklch(0.63 0.128 248);
   --accent-foreground: oklch(0.99 0.003 250);
@@ -238,6 +238,9 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  display: inline-block;
+  padding-right: 0.12em;
+  padding-bottom: 0.05em;
 }
 
 @utility bg-gradient-gold {
