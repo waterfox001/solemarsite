@@ -67,9 +67,13 @@ export function readDB(): DB {
                   images: userV.images && userV.images.length > 0 ? userV.images : seedV.images,
                   is_illustrative_image: userV.cover_image ? false : seedV.is_illustrative_image,
                   fleet_quantity:
-                    userV.fleet_quantity !== undefined ? userV.fleet_quantity : seedV.fleet_quantity ?? 1,
+                    userV.fleet_quantity !== undefined
+                      ? userV.fleet_quantity
+                      : (seedV.fleet_quantity ?? 1),
                   deposit_amount:
-                    userV.deposit_amount !== undefined ? userV.deposit_amount : seedV.deposit_amount ?? 0,
+                    userV.deposit_amount !== undefined
+                      ? userV.deposit_amount
+                      : (seedV.deposit_amount ?? 0),
                 });
               });
             }

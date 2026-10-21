@@ -144,7 +144,9 @@ export function buildReservationWhatsAppMessage(breakdown: CheckoutBreakdown): s
     ``,
     `*1. VEÍCULO ESCOLHIDO:*`,
     `• Modelo: *${vehicleName}*${vehicleCategory ? ` (${vehicleCategory})` : ""}`,
-    dailyRate > 0 ? `• Diária base: ${brl(dailyRate)}/dia` : `• Diária base: A consultar com a equipe`,
+    dailyRate > 0
+      ? `• Diária base: ${brl(dailyRate)}/dia`
+      : `• Diária base: A consultar com a equipe`,
     ``,
     `*2. PERÍODO DA LOCAÇÃO:*`,
     `• Período: ${periodText}`,

@@ -265,7 +265,8 @@ export const seedAdditionals: CatalogAdditional[] = [
   {
     id: "opt-protecao-pneus-vidros",
     name: "Proteção Especial de Pneus e Vidros",
-    description: "Reduz a responsabilidade financeira em caso de danos a retrovisores, vidros e pneus.",
+    description:
+      "Reduz a responsabilidade financeira em caso de danos a retrovisores, vidros e pneus.",
     price: 25,
     type: "per_day",
     stock_quantity: 99,
@@ -317,4 +318,3 @@ export const seedReservations: Reservation[] = [
     created_at: new Date().toISOString(),
   },
 ];
-

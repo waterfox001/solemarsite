@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -11,8 +11,10 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  ExternalLink,
   Info,
   Loader2,
+  Lock,
   MapPin,
   MessageCircle,
   Plus,
@@ -23,10 +25,16 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHero, SiteLayout } from "@/components/site/SiteLayout";
-import { listVehicles } from "@/lib/api";
+import { createReservation, listAdditionals, listVehicles } from "@/lib/api";
 import { addDaysISO, brl, daysBetween, longDate, todayISO } from "@/lib/format";
 import { company, whatsappLink } from "@/lib/env";
-import type { Vehicle } from "@/lib/types";
+import type { CatalogAdditional, Vehicle } from "@/lib/types";
+import {
+  buildReservationWhatsAppMessage,
+  CheckoutBreakdown,
+  CheckoutSessionResult,
+  preparePaymentCheckoutSession,
+} from "@/lib/checkout";
 import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/site/DateRangePicker";
 
@@ -110,46 +118,6 @@ const HOURS = [
   "22:00",
 ];
 
-interface OptionItem {
-  id: string;
-  name: string;
-  description: string;
-  dailyPrice: number;
-}
-
-const DEMO_OPTIONALS: OptionItem[] = [
-  {
-    id: "bebe_conforto",
-    name: "Bebê Conforto (0 a 1 ano)",
-    description: "Item de segurança para recém-nascidos. Sujeito à disponibilidade no atendimento.",
-    dailyPrice: 20,
-  },
-  {
-    id: "cadeirinha",
-    name: "Cadeirinha Infantil (1 a 4 anos)",
-    description: "Assento com cinto próprio para crianças. Valor demonstrativo.",
-    dailyPrice: 20,
-  },
-  {
-    id: "assento_elevacao",
-    name: "Assento de Elevação (4 a 7 anos)",
-    description: "Recomendado para crianças maiores. Valor demonstrativo.",
-    dailyPrice: 15,
-  },
-  {
-    id: "condutor_adicional",
-    name: "Condutor Adicional",
-    description: "Autorização para mais de um motorista habilitado conduzir o veículo.",
-    dailyPrice: 15,
-  },
-  {
-    id: "protecao_vidros_pneus",
-    name: "Proteção de Pneus e Vidros (demonstrativo)",
-    description: "Cobertura adicional para pequenos danos em retrovisores, vidros e pneus.",
-    dailyPrice: 25,
-  },
-];
-
 const inputClass =
   "h-12 w-full rounded-xl border border-input bg-surface px-4 text-sm text-foreground outline-none transition-colors focus:border-primary sm:text-base";
 
@@ -178,7 +146,7 @@ function ReservationFlow() {
   // Etapa 3: Opcionais selecionados (conjunto de IDs)
   const [selectedOptionals, setSelectedOptionals] = useState<string[]>([]);
 
-  // Etapa 4: Dados do solicitante
+  // Etapa 4: Dados do solicitante (e-mail opcional)
   const [customer, setCustomer] = useState({
     name: "",
     email: "",
@@ -186,13 +154,19 @@ function ReservationFlow() {
     notes: "",
   });
 
-  // Estado de envio / conclusão
-  const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
+  // Sessão de checkout e reserva finalizada (preparação de pagamento)
+  const [confirmedSession, setConfirmedSession] = useState<CheckoutSessionResult | null>(null);
 
   // Carrega veículos
   const { data: vehicles = [], isLoading: isLoadingVehicles } = useQuery({
     queryKey: ["vehicles"],
     queryFn: listVehicles,
+  });
+
+  // Carrega opcionais ativos cadastrados pela locadora
+  const { data: catalogAdditionals = [], isLoading: isLoadingAdditionals } = useQuery({
+    queryKey: ["additionals", "active"],
+    queryFn: () => listAdditionals(true),
   });
 
   const activeVehicles = useMemo(() => vehicles.filter((v) => v.active), [vehicles]);
@@ -205,16 +179,22 @@ function ReservationFlow() {
   const rawDays = daysBetween(start, end);
   const calculatedDays = rawDays < 1 ? 1 : rawDays;
 
-  // Total dos opcionais por dia multiplicado pelas diárias
-  const optionalsDailyTotal = useMemo(() => {
+  // Total dos opcionais selecionados (por diária ou taxa única)
+  const optionalsSubtotal = useMemo(() => {
     return selectedOptionals.reduce((acc, id) => {
-      const opt = DEMO_OPTIONALS.find((o) => o.id === id);
-      return acc + (opt ? opt.dailyPrice : 0);
+      const opt = catalogAdditionals.find((o) => o.id === id);
+      if (!opt) return acc;
+      const optCost = opt.type === "per_day" ? opt.price * calculatedDays : opt.price;
+      return acc + optCost;
     }, 0);
-  }, [selectedOptionals]);
+  }, [selectedOptionals, catalogAdditionals, calculatedDays]);
 
   const vehicleDailyRate = chosenVehicle ? chosenVehicle.daily_rate : 0;
-  const totalEstimated = (vehicleDailyRate + optionalsDailyTotal) * calculatedDays;
+  const dailySubtotal = vehicleDailyRate * calculatedDays;
+  const rentalTotal = dailySubtotal + optionalsSubtotal;
+  const depositAmount = chosenVehicle?.deposit_amount ?? 0;
+  const advancePaymentAmount = 0; // Regra comercial configurada (sinal antecipado opcional)
+  const balanceOnPickup = rentalTotal; // Saldo a acertar na retirada
 
   // Validação da Etapa 1
   const isPeriodValid = useMemo(() => {
@@ -224,11 +204,11 @@ function ReservationFlow() {
     return true;
   }, [start, end, startTime, endTime]);
 
-  // Validação da Etapa 4 (apenas dados essenciais)
+  // Validação da Etapa 4 (Nome e WhatsApp são obrigatórios; e-mail é estritamente opcional)
   const isCustomerValid = useMemo(() => {
     const validName = customer.name.trim().length >= 3;
     const validPhone = customer.phone.replace(/\D/g, "").length >= 10;
-    const validEmail = /\S+@\S+\.\S+/.test(customer.email.trim());
+    const validEmail = !customer.email.trim() || /\S+@\S+\.\S+/.test(customer.email.trim());
     return validName && validPhone && validEmail;
   }, [customer]);
 
@@ -238,7 +218,57 @@ function ReservationFlow() {
     );
   };
 
-  // Gerador de código de consulta de demonstração
+  // Mutação para registrar a reserva no sistema com status "pendente" e preparar sessão de checkout
+  const finalizeReservationMutation = useMutation({
+    mutationFn: async () => {
+      if (!chosenVehicle) throw new Error("Selecione um veículo");
+      const selectedList = selectedOptionals
+        .map((id) => catalogAdditionals.find((o) => o.id === id))
+        .filter((o): o is CatalogAdditional => Boolean(o))
+        .map((o) => ({
+          id: o.id,
+          name: o.name,
+          price: o.price,
+          type: o.type,
+        }));
+
+      const { reservation, vehicle } = await createReservation({
+        vehicle_id: chosenVehicle.id,
+        start_date: start,
+        end_date: end,
+        start_time: startTime,
+        end_time: endTime,
+        pickup_location: pickupLocation,
+        return_location: returnLocation,
+        additionals: selectedList,
+        advance_payment_amount: advancePaymentAmount,
+        customer: {
+          name: customer.name.trim(),
+          phone: customer.phone.trim(),
+          email: customer.email.trim() || undefined,
+          notes: customer.notes.trim() || undefined,
+        },
+      });
+
+      const session = await preparePaymentCheckoutSession(reservation, vehicle, {
+        id: reservation.customer_id,
+        name: customer.name.trim(),
+        phone: customer.phone.trim(),
+        email: customer.email.trim() || null,
+        created_at: reservation.created_at,
+      });
+      return session;
+    },
+    onSuccess: (session) => {
+      setConfirmedSession(session);
+      toast.success("Reserva provisória registrada com sucesso!");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erro ao processar reserva.");
+    },
+  });
+
+  // Gerador de código provisório de consulta antes de confirmar
   const quoteCode = useMemo(() => {
     const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
     return `SM-COT-${rand}`;
@@ -294,11 +324,213 @@ function ReservationFlow() {
     toast.success("Solicitação pronta! Redirecionando para o WhatsApp da Sol & Mar...");
   };
 
-  const handleCopySummary = () => {
-    const message = generateWhatsAppMessage();
-    navigator.clipboard.writeText(message);
-    toast.success("Resumo do orçamento copiado para a área de transferência!");
-  };
+  if (confirmedSession) {
+    const b = confirmedSession.breakdown;
+    const whatsappText = buildReservationWhatsAppMessage(b);
+    return (
+      <SiteLayout>
+        <div className="mx-auto max-w-3xl px-5 pt-32 pb-24 sm:px-8 sm:pt-40">
+          <div className="glass-panel animate-in fade-in space-y-6 rounded-3xl border border-border p-6 shadow-elevate sm:p-8">
+            {/* Header de Sucesso / Pendente */}
+            <div className="flex flex-col items-center text-center">
+              <div className="grid size-16 place-items-center rounded-3xl bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                <CheckCircle2 className="size-9 stroke-[2.2]" />
+              </div>
+              <span className="mt-4 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-bold text-amber-500">
+                Reserva Provisória Registrada · Aguardando Confirmação
+              </span>
+              <h1 className="mt-2 text-2xl font-display font-bold text-foreground sm:text-3xl">
+                Protocolo: #{b.reservationCode}
+              </h1>
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm max-w-lg">
+                Sua reserva provisória foi registrada com sucesso no sistema da Sol & Mar Rent a
+                Car. A unidade deste modelo foi pré-reservada para o período informado.
+              </p>
+            </div>
+
+            {/* Quadro de Discriminação dos Valores Conforme Regra Comercial */}
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-4 text-xs">
+              <h3 className="font-bold text-foreground text-sm border-b border-border/70 pb-2">
+                Resumo Discriminado da Reserva
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <span className="text-[0.68rem] text-muted-foreground uppercase font-bold block">
+                    1. Veículo Escolhido
+                  </span>
+                  <p className="font-bold text-foreground text-sm mt-0.5">{b.vehicleName}</p>
+                  {b.vehicleCategory ? (
+                    <span className="text-accent font-semibold text-[0.7rem]">
+                      Categoria: {b.vehicleCategory}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div>
+                  <span className="text-[0.68rem] text-muted-foreground uppercase font-bold block">
+                    2. Período da Locação ({b.days} diárias)
+                  </span>
+                  <p className="font-medium text-foreground mt-0.5">{b.periodText}</p>
+                  <p className="text-muted-foreground text-[0.7rem] mt-0.5">
+                    Retirada: {b.pickupLocation}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tabela de Valores */}
+              <div className="border-t border-border/70 pt-3 space-y-2">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>
+                    3. Valor das diárias ({b.days}x {brl(b.dailyRate)}):
+                  </span>
+                  <span className="font-semibold text-foreground">{brl(b.dailySubtotal)}</span>
+                </div>
+
+                {b.additionals.length > 0 ? (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>4. Opcionais selecionados ({b.additionals.length} item[ns]):</span>
+                      <span className="font-semibold text-foreground">
+                        +{brl(b.additionalsSubtotal)}
+                      </span>
+                    </div>
+                    {b.additionals.map((opt) => (
+                      <div
+                        key={opt.id}
+                        className="flex justify-between pl-3 text-[0.7rem] text-muted-foreground/80"
+                      >
+                        <span>
+                          • {opt.name} (
+                          {opt.type === "per_day" ? `${brl(opt.price)}/dia` : "taxa única"}):
+                        </span>
+                        <span>{brl(opt.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>4. Opcionais:</span>
+                    <span>Nenhum opcional selecionado</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between border-t border-border/60 pt-2 text-sm font-bold text-foreground">
+                  <span>Valor Total da Locação:</span>
+                  <span className="text-primary text-base">{brl(b.rentalTotal)}</span>
+                </div>
+              </div>
+
+              {/* Destaque Explicativo da Caução (Garantia por Bloqueio no Cartão) */}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-1 text-xs">
+                <div className="flex items-center justify-between font-bold text-amber-500">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="size-4" />
+                    5. Caução de Garantia da Locação:
+                  </span>
+                  <span className="text-sm">
+                    {b.depositAmount > 0 ? brl(b.depositAmount) : "A combinar na retirada"}
+                  </span>
+                </div>
+                <p className="text-[0.72rem] text-amber-300/90 leading-relaxed">
+                  <strong>Importante:</strong> A caução é uma garantia temporária exigida para a
+                  locação deste veículo e funciona como um{" "}
+                  <strong>bloqueio (pré-autorização) de limite no cartão de crédito</strong> no ato
+                  da retirada. O valor <strong>é liberado integralmente</strong> após a devolução do
+                  veículo sem avarias. <strong>Não é cobrança definitiva nem antecipada.</strong>
+                </p>
+              </div>
+
+              {/* Pagamento e Saldo */}
+              <div className="rounded-xl border border-border/80 bg-surface/50 p-3.5 space-y-1.5 text-xs">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>6. Valor a pagar antecipadamente para reservar:</span>
+                  <span className="font-bold text-foreground">
+                    {brl(b.advancePaymentAmount)} (R$ 0,00)
+                  </span>
+                </div>
+                <div className="flex justify-between font-bold text-foreground border-t border-border/60 pt-1.5">
+                  <span>7. Valor restante da locação a acertar na retirada:</span>
+                  <span className="text-primary font-semibold">{brl(b.balanceOnPickup)}</span>
+                </div>
+                <p className="text-[0.68rem] text-muted-foreground pt-1">
+                  * Formas de pagamento aceitas na retirada: PIX, cartão de crédito ou débito.
+                </p>
+              </div>
+
+              {/* Dados do Cliente */}
+              <div className="border-t border-border/70 pt-3 text-[0.72rem] text-muted-foreground flex flex-wrap gap-4">
+                <span>
+                  <strong>Cliente:</strong> {b.customerName}
+                </span>
+                <span>
+                  <strong>WhatsApp:</strong> {b.customerPhone}
+                </span>
+                {b.customerEmail ? (
+                  <span>
+                    <strong>E-mail:</strong> {b.customerEmail}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Aviso sobre Integração e Confirmação */}
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs text-muted-foreground leading-relaxed">
+              <span className="font-bold text-foreground block mb-1">
+                Próximo Passo: Validação pelo WhatsApp
+              </span>
+              Nossa equipe comercial da Sol & Mar confirmará a disponibilidade física, contrato e
+              orientará sobre a liberação da pré-autorização da caução. Clique no botão abaixo para
+              abrir a conversa com os dados preenchidos.
+            </div>
+
+            {/* Ações */}
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+              <Button
+                variant="hero"
+                size="xl"
+                className="flex-1 gap-2 font-bold shadow-gold"
+                onClick={() => {
+                  const url = `https://wa.me/${company.whatsapp}?text=${encodeURIComponent(whatsappText)}`;
+                  window.open(url, "_blank");
+                }}
+              >
+                <MessageCircle className="size-5" />
+                Conversar no WhatsApp com a Reserva #{b.reservationCode}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="xl"
+                onClick={() => {
+                  navigator.clipboard.writeText(whatsappText);
+                  toast.success("Resumo da reserva copiado!");
+                }}
+                className="gap-2"
+              >
+                <Copy className="size-4" />
+                Copiar Resumo
+              </Button>
+            </div>
+
+            <div className="text-center pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setConfirmedSession(null);
+                  setStep(0);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Iniciar nova simulação
+              </Button>
+            </div>
+          </div>
+        </div>
+      </SiteLayout>
+    );
+  }
 
   return (
     <SiteLayout>
@@ -607,61 +839,82 @@ function ReservationFlow() {
                 </div>
 
                 <div className="space-y-3.5">
-                  {DEMO_OPTIONALS.map((opt) => {
-                    const isChecked = selectedOptionals.includes(opt.id);
-                    const optTotal = opt.dailyPrice * calculatedDays;
+                  {isLoadingAdditionals ? (
+                    <div className="py-8 text-center text-xs text-muted-foreground">
+                      Carregando opcionais disponíveis...
+                    </div>
+                  ) : catalogAdditionals.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground bg-card">
+                      Nenhum opcional cadastrado no momento. Você pode prosseguir com a locação
+                      padrão do veículo.
+                    </div>
+                  ) : (
+                    catalogAdditionals.map((opt) => {
+                      const isChecked = selectedOptionals.includes(opt.id);
+                      const optTotal =
+                        opt.type === "per_day" ? opt.price * calculatedDays : opt.price;
 
-                    return (
-                      <div
-                        key={opt.id}
-                        onClick={() => toggleOptional(opt.id)}
-                        className={cn(
-                          "card-hover flex cursor-pointer items-start gap-4 rounded-2xl border p-4.5 transition-all",
-                          isChecked
-                            ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
-                            : "border-border/90 bg-card hover:border-primary/40",
-                        )}
-                      >
+                      return (
                         <div
+                          key={opt.id}
+                          onClick={() => toggleOptional(opt.id)}
                           className={cn(
-                            "mt-1 grid size-5.5 shrink-0 place-items-center rounded-md border transition-colors",
+                            "card-hover flex cursor-pointer items-start gap-4 rounded-2xl border p-4.5 transition-all",
                             isChecked
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-input bg-surface",
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-xs"
+                              : "border-border/90 bg-card hover:border-primary/40",
                           )}
                         >
-                          {isChecked ? <Check className="size-3.5 stroke-[3]" /> : null}
-                        </div>
+                          <div
+                            className={cn(
+                              "mt-1 grid size-5.5 shrink-0 place-items-center rounded-md border transition-colors",
+                              isChecked
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-surface",
+                            )}
+                          >
+                            {isChecked ? <Check className="size-3.5 stroke-[3]" /> : null}
+                          </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="font-bold text-foreground text-sm sm:text-base">
-                              {opt.name}
-                            </p>
-                            <span className="text-xs sm:text-sm font-bold text-primary shrink-0 bg-primary/10 px-2.5 py-1 rounded-lg">
-                              +{brl(opt.dailyPrice)}/dia
-                            </span>
-                          </div>
-                          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                            {opt.description}
-                          </p>
-                          <div className="mt-2.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Subtotal para {calculatedDays} diária(s):</span>
-                            <strong className="text-foreground font-semibold">
-                              {brl(optTotal)}
-                            </strong>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="font-bold text-foreground text-sm sm:text-base">
+                                {opt.name}
+                              </p>
+                              <span className="text-xs sm:text-sm font-bold text-primary shrink-0 bg-primary/10 px-2.5 py-1 rounded-lg">
+                                +{brl(opt.price)}
+                                <span className="text-[0.68rem] font-normal text-muted-foreground ml-1">
+                                  {opt.type === "per_day" ? "/dia" : "taxa única"}
+                                </span>
+                              </span>
+                            </div>
+                            {opt.description ? (
+                              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                                {opt.description}
+                              </p>
+                            ) : null}
+                            <div className="mt-2.5 flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>
+                                {opt.type === "per_day"
+                                  ? `Subtotal para ${calculatedDays} diária(s):`
+                                  : "Taxa fixa para todo o período:"}
+                              </span>
+                              <strong className="text-foreground font-semibold">
+                                {brl(optTotal)}
+                              </strong>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
 
                 <div className="flex items-start gap-3 rounded-2xl bg-surface/70 p-4 text-xs text-muted-foreground border border-border/80">
                   <Info className="size-4 shrink-0 text-primary mt-0.5" />
                   <span className="leading-relaxed">
-                    A disponibilidade dos opcionais e a tarifa final serão verificadas pela equipe
-                    da Sol & Mar durante o atendimento pelo WhatsApp.
+                    A disponibilidade dos itens e a conferência dos acessórios serão checadas
+                    diretamente pela equipe da Sol & Mar na validação do pedido.
                   </span>
                 </div>
               </div>
@@ -705,22 +958,20 @@ function ReservationFlow() {
                 <div className="space-y-3 text-xs sm:text-sm">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Diárias do veículo ({calculatedDays}x)</span>
-                    <span className="text-foreground font-semibold">
-                      {brl(chosenVehicle.daily_rate * calculatedDays)}
-                    </span>
+                    <span className="text-foreground font-semibold">{brl(dailySubtotal)}</span>
                   </div>
 
                   {selectedOptionals.length > 0 ? (
                     <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Opcionais ({selectedOptionals.length} item[s])</span>
+                      <span>Opcionais selecionados</span>
                       <span className="text-foreground font-semibold">
-                        +{brl(optionalsDailyTotal * calculatedDays)}
+                        +{brl(optionalsSubtotal)}
                       </span>
                     </div>
                   ) : null}
 
                   <div className="flex items-start justify-between text-muted-foreground pt-1 border-t border-border/50">
-                    <span className="shrink-0">Local retirada/devolução</span>
+                    <span className="shrink-0">Local retirada</span>
                     <span className="text-foreground font-medium text-right text-xs max-w-[13rem] truncate">
                       {pickupLocation}
                     </span>
@@ -728,14 +979,25 @@ function ReservationFlow() {
 
                   <div className="rounded-2xl bg-surface/90 border border-primary/25 p-4 mt-2">
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm font-bold text-foreground">Total Estimado</span>
+                      <span className="text-sm font-bold text-foreground">Total da Locação</span>
                       <span className="font-display text-2xl sm:text-3xl font-extrabold text-primary">
-                        {brl(totalEstimated)}
+                        {brl(rentalTotal)}
                       </span>
                     </div>
-                    <p className="mt-2 text-[0.7rem] text-muted-foreground leading-relaxed">
-                      * Estimativa para consulta de disponibilidade. Proposta final e condições de
-                      pagamento enviadas pelo WhatsApp.
+
+                    {/* Exibição da Caução de Garantia */}
+                    <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <ShieldCheck className="size-3.5 text-amber-500" />
+                        Caução de garantia:
+                      </span>
+                      <span className="font-bold text-amber-500">
+                        {depositAmount > 0 ? brl(depositAmount) : "A combinar"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[0.68rem] text-muted-foreground leading-relaxed">
+                      * A caução é garantia via bloqueio temporário no cartão de crédito na
+                      retirada, liberada na devolução.
                     </p>
                   </div>
                 </div>
@@ -810,15 +1072,17 @@ function ReservationFlow() {
               </label>
 
               <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">E-mail para contato *</span>
+                <span className="font-medium text-foreground">E-mail para contato (opcional)</span>
                 <input
                   type="email"
-                  placeholder="seuemail@exemplo.com"
+                  placeholder="seuemail@exemplo.com (opcional)"
                   value={customer.email}
                   onChange={(e) => setCustomer({ ...customer, email: e.target.value })}
                   className={inputClass}
-                  required
                 />
+                <span className="text-[0.68rem] text-muted-foreground">
+                  Opcional. Se informado, usaremos para enviar confirmação e cópia da proposta.
+                </span>
               </label>
 
               <label className="flex flex-col gap-1.5 text-xs text-muted-foreground sm:col-span-2">
@@ -837,7 +1101,8 @@ function ReservationFlow() {
 
             {!isCustomerValid ? (
               <p className="text-xs text-muted-foreground">
-                * Preencha seu nome, WhatsApp com DDD e e-mail para avançar para a revisão final.
+                * Preencha seu nome e WhatsApp com DDD para avançar para a revisão final. O e-mail é
+                opcional.
               </p>
             ) : null}
 
@@ -880,19 +1145,22 @@ function ReservationFlow() {
                 </p>
               </div>
 
-              {/* Quadro comparativo de revisão */}
+              {/* Quadro comparativo de revisão completo */}
               <div className="grid gap-6 md:grid-cols-2">
+                {/* Coluna 1: Dados da Locação e Veículo */}
                 <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-xs">
                   <p className="font-semibold text-foreground text-sm border-b border-border/70 pb-2">
-                    Locação e Veículo
+                    1. Veículo & Período da Locação
                   </p>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Veículo / Grupo:</span>
+                    <span className="text-muted-foreground">Veículo Escolhido:</span>
                     <strong className="text-foreground">{chosenVehicle.name}</strong>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Categoria:</span>
-                    <span className="text-foreground">{chosenVehicle.category}</span>
+                    <span className="text-foreground">
+                      {chosenVehicle.category || "A confirmar"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Retirada:</span>
@@ -914,88 +1182,173 @@ function ReservationFlow() {
                     <span className="text-muted-foreground">Local Devolução:</span>
                     <span className="text-foreground text-right">{returnLocation}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Diárias calculadas:</span>
-                    <span className="text-foreground font-semibold">
-                      {calculatedDays} diária(s)
-                    </span>
+                  <div className="flex justify-between border-t border-border/60 pt-2 font-medium">
+                    <span className="text-muted-foreground">Quantidade de diárias:</span>
+                    <span className="text-foreground font-bold">{calculatedDays} diária(s)</span>
                   </div>
                 </div>
 
+                {/* Coluna 2: Solicitante & Contato */}
                 <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-xs">
                   <p className="font-semibold text-foreground text-sm border-b border-border/70 pb-2">
-                    Solicitante & Estimativa
+                    Dados do Solicitante
                   </p>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Solicitante:</span>
+                    <span className="text-muted-foreground">Nome completo:</span>
                     <strong className="text-foreground">{customer.name}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">WhatsApp:</span>
+                    <span className="text-muted-foreground">Telefone / WhatsApp:</span>
                     <span className="text-foreground">{customer.phone}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">E-mail:</span>
-                    <span className="text-foreground">{customer.email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Opcionais:</span>
-                    <span className="text-foreground text-right">
-                      {selectedOptionals.length > 0
-                        ? `${selectedOptionals.length} selecionado(s)`
-                        : "Nenhum"}
+                    <span className="text-foreground">
+                      {customer.email.trim() ? customer.email : "Não informado (opcional)"}
                     </span>
                   </div>
-                  <div className="border-t border-border pt-2 flex items-baseline justify-between">
-                    <span className="font-semibold text-foreground">Total Estimado:</span>
-                    <span className="font-display text-xl font-semibold text-primary">
-                      {brl(totalEstimated)}
-                    </span>
-                  </div>
-                  {customer.notes ? (
-                    <div className="border-t border-border/60 pt-2 text-[0.7rem] text-muted-foreground">
-                      <strong>Observações:</strong> {customer.notes}
+                  {customer.notes.trim() ? (
+                    <div className="border-t border-border/60 pt-2 text-[0.72rem] text-muted-foreground">
+                      <strong>Observações:</strong> {customer.notes.trim()}
                     </div>
                   ) : null}
                 </div>
               </div>
 
-              {/* Aviso explícito de caráter de orçamento */}
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200">
-                <p className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="size-4" />
-                  Aviso Importante sobre a Solicitação
+              {/* Quadro de Discriminação de Valores */}
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-3 text-xs">
+                <p className="font-semibold text-foreground text-sm border-b border-border/70 pb-2">
+                  Discriminação Detalhada dos Valores
                 </p>
-                <p className="mt-1 leading-relaxed text-amber-300/90 text-[0.72rem]">
-                  O envio destas informações constitui um pedido de orçamento e consulta de
-                  disponibilidade. A reserva e os valores finais serão confirmados diretamente pela
-                  equipe da Sol & Mar Rent a Car via WhatsApp ({company.phoneInternational}),
-                  respeitando os horários comerciais e o inventário oficial da empresa.
-                </p>
+
+                <div className="flex justify-between text-muted-foreground">
+                  <span>
+                    Valor das diárias ({calculatedDays}x {brl(vehicleDailyRate)}):
+                  </span>
+                  <span className="font-semibold text-foreground">{brl(dailySubtotal)}</span>
+                </div>
+
+                {selectedOptionals.length > 0 ? (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Opcionais selecionados ({selectedOptionals.length} item[ns]):</span>
+                      <span className="font-semibold text-foreground">
+                        +{brl(optionalsSubtotal)}
+                      </span>
+                    </div>
+                    {selectedOptionals.map((id) => {
+                      const opt = catalogAdditionals.find((o) => o.id === id);
+                      if (!opt) return null;
+                      const optCost =
+                        opt.type === "per_day" ? opt.price * calculatedDays : opt.price;
+                      return (
+                        <div
+                          key={opt.id}
+                          className="flex justify-between pl-3 text-[0.7rem] text-muted-foreground"
+                        >
+                          <span>
+                            • {opt.name} (
+                            {opt.type === "per_day" ? `${brl(opt.price)}/dia` : "taxa única"}):
+                          </span>
+                          <span>{brl(optCost)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Opcionais selecionados:</span>
+                    <span>Nenhum item adicional</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between border-t border-border/60 pt-2 text-sm font-bold text-foreground">
+                  <span>Valor Total da Locação (custo efetivo):</span>
+                  <span className="text-primary text-base font-display">{brl(rentalTotal)}</span>
+                </div>
+
+                {/* Destaque Explicativo da Caução Exigida */}
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-1 mt-2">
+                  <div className="flex items-center justify-between font-bold text-amber-500 text-xs sm:text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="size-4" />
+                      Valor da Caução Exigida (Garantia da Locação):
+                    </span>
+                    <span>{depositAmount > 0 ? brl(depositAmount) : "A combinar na retirada"}</span>
+                  </div>
+                  <p className="text-[0.72rem] text-amber-300/90 leading-relaxed pt-1">
+                    <strong>Garantia temporária:</strong> A caução é bloqueada no cartão de crédito
+                    na retirada (pré-autorização) e liberada integralmente após a devolução do
+                    veículo sem avarias.{" "}
+                    <strong>
+                      Não é uma cobrança definitiva e não compõe a receita das diárias.
+                    </strong>
+                  </p>
+                </div>
+
+                {/* Condições de Pagamento */}
+                <div className="rounded-xl border border-border/80 bg-surface/60 p-4 space-y-1.5 mt-2">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Valor a pagar antecipadamente para reservar:</span>
+                    <span className="font-bold text-foreground">
+                      {brl(advancePaymentAmount)} (R$ 0,00)
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-foreground border-t border-border/60 pt-1.5">
+                    <span>Valor restante da locação a acertar na retirada:</span>
+                    <span className="text-primary font-semibold">{brl(balanceOnPickup)}</span>
+                  </div>
+                  <p className="text-[0.7rem] text-muted-foreground pt-1">
+                    * O saldo da locação pode ser pago na retirada via PIX, cartão de crédito ou
+                    débito.
+                  </p>
+                </div>
               </div>
 
-              {/* Botões de Envio e Cópia */}
-              <div className="flex flex-col gap-3 pt-3 sm:flex-row">
+              {/* Botões de Finalização e Envio */}
+              <div className="space-y-3 pt-2">
                 <Button
                   variant="hero"
                   size="xl"
-                  className="flex-1 gap-2"
-                  onClick={handleSendToWhatsApp}
+                  disabled={finalizeReservationMutation.isPending}
+                  className="w-full gap-2 font-bold shadow-gold text-sm sm:text-base h-13"
+                  onClick={() => finalizeReservationMutation.mutate()}
                 >
-                  <MessageCircle className="size-5" />
-                  Enviar solicitação pelo WhatsApp
+                  {finalizeReservationMutation.isPending ? (
+                    <>
+                      <Loader2 className="size-5 animate-spin" />
+                      <span>Registrando reserva provisória...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="size-5" />
+                      <span>Confirmar Solicitação de Reserva</span>
+                    </>
+                  )}
                 </Button>
 
-                <Button
-                  variant="glass"
-                  size="xl"
-                  type="button"
-                  onClick={handleCopySummary}
-                  className="gap-2"
-                >
-                  <Copy className="size-4" />
-                  Copiar resumo
-                </Button>
+                <div className="flex flex-col gap-2.5 sm:flex-row">
+                  <Button
+                    variant="glass"
+                    size="lg"
+                    className="flex-1 gap-2 text-xs"
+                    onClick={handleSendToWhatsApp}
+                  >
+                    <MessageCircle className="size-4" />
+                    Enviar diretamente pelo WhatsApp
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    type="button"
+                    onClick={handleCopySummary}
+                    className="gap-2 text-xs"
+                  >
+                    <Copy className="size-4" />
+                    Copiar resumo
+                  </Button>
+                </div>
               </div>
             </div>
 

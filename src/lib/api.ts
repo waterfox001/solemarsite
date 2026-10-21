@@ -524,7 +524,10 @@ export async function deleteCustomer(id: string) {
 export async function listAdditionals(onlyActive = false): Promise<CatalogAdditional[]> {
   if (isRemoteEnabled()) {
     try {
-      let query = supabase!.from("additionals").select("*").order("created_at", { ascending: true });
+      let query = supabase!
+        .from("additionals")
+        .select("*")
+        .order("created_at", { ascending: true });
       if (onlyActive) {
         query = query.eq("active", true);
       }
@@ -595,4 +598,3 @@ export async function setAdditionalActive(id: string, active: boolean): Promise<
   db.additionals = (db.additionals ?? []).map((a) => (a.id === id ? { ...a, active } : a));
   writeDB(db);
 }
-
