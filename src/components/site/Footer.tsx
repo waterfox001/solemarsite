@@ -9,7 +9,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-[1536px] w-full gap-12 px-5 py-16 sm:px-8 lg:px-12 xl:px-16 lg:grid-cols-[1.3fr_1fr_1fr]">
         {/* Coluna 1: Marca e slogan oficial */}
         <div className="space-y-4">
-          <Logo imageClassName="h-16 sm:h-20 w-auto aspect-[1242/1130]" />
+          <Logo imageClassName="h-18 sm:h-22 lg:h-26 w-auto aspect-[1242/1130]" />
           <p className="text-xs font-bold tracking-wider text-primary uppercase">
             "{company.tagline}"
           </p>

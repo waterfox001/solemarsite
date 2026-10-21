@@ -29,14 +29,14 @@ export function Logo({
       <div
         className={cn(
           "relative shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border/80 bg-[#0f1c30] transition-all duration-300 group-hover:ring-primary/60 group-hover:shadow-md",
-          imageClassName || "h-14 sm:h-18 lg:h-22 w-auto aspect-[1242/1130]",
+          imageClassName || "h-16 sm:h-20 md:h-24 lg:h-28 w-auto aspect-[1242/1130]",
         )}
       >
         <img
           src="/logo-sol-e-mar-clean.png"
           alt="Sol & Mar Rent a Car"
-          width={220}
-          height={200}
+          width={280}
+          height={255}
           loading={priority ? "eager" : "lazy"}
           className="size-full object-contain p-0.5 transition-transform duration-500 group-hover:scale-105"
         />

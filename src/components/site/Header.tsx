@@ -46,8 +46,8 @@ export function Header() {
           className="shrink-0"
           imageClassName={
             scrolled
-              ? "h-14 sm:h-16 lg:h-18 w-auto aspect-[1242/1130]"
-              : "h-16 sm:h-20 lg:h-24 xl:h-28 w-auto aspect-[1242/1130]"
+              ? "h-14 sm:h-16 md:h-18 lg:h-20 w-auto aspect-[1242/1130]"
+              : "h-18 sm:h-22 md:h-26 lg:h-30 xl:h-32 w-auto aspect-[1242/1130]"
           }
           priority
         />
